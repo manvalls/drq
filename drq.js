@@ -11,6 +11,7 @@ function __evalIt(module,exports,global,___content){
 (function(global){
   var RE = /^\w+:\/\/[\w\.:]+/,
       FNRE = /^\.\.?\//,
+      mains = {},
       path,paths;
   
   location.origin = location.origin || location.href.match(RE)[0];
@@ -29,7 +30,7 @@ function __evalIt(module,exports,global,___content){
   }
   
   function getPaths(filename){
-    var i,j,paths,origin,m;
+    var i,j,paths,origin,m,banned = [],offset = 0;
     
     if(filename instanceof Array) paths = filename.slice(0,-1);
     else{
@@ -41,9 +42,14 @@ function __evalIt(module,exports,global,___content){
       paths.unshift(origin);
     }
     
+    for(i = 0;i < paths.length;i++) if(paths[i] == 'node_modules') banned.push(i);
+    
     if(paths.length > 1) paths[1] = paths[0] + '/' + paths[1];
-    for(i = 2;i < paths.length;i++){
-      paths[i] = paths[i - 1] + '/' + paths[i];
+    for(i = 2;i < paths.length;i++) paths[i] = paths[i - 1] + '/' + paths[i];
+    
+    for(i = 0;i < banned.length;i++){
+      paths.splice(banned[i] - offset,1);
+      offset++;
     }
     
     for(i = 0;i < paths.length;i++) paths[i] += '/node_modules';
@@ -119,17 +125,51 @@ function __evalIt(module,exports,global,___content){
     return module.exports;
   }
   
+  function loadAsFolderPkg(url,path,parent){
+    var pkg,txt;
+    
+    txt = get(url + '/package.json');
+    
+    pkg = JSON.parse(txt);
+    mains[url] = pkg.main
+    
+    return loadAsFile(url + '/' + pkg.main,path,parent);
+  }
+  
   function loadAsFolder(url,path,parent){
     var pkg,txt;
     
     try{
       txt = get(url + '/package.json');
+      
       pkg = JSON.parse(txt);
+      mains[url] = pkg.main
+      
       return loadAsFile(url + '/' + pkg.main,path,parent);
     }catch(e){
       return loadAsFile(url + '/index',path,parent);
     }
     
+  }
+  
+  function loadAsFileFromCache(url){
+    var djs = url + '.js',
+        djson = url + '.json';
+    
+    if(global.require.cache[url]) return global.require.cache[url].exports;
+    if(global.require.cache[djs]) return global.require.cache[djs].exports;
+    if(global.require.cache[djson]) return global.require.cache[djson].exports;
+    
+    throw new Error();
+  }
+  
+  function loadAsFolderFromCache(url){
+    var main;
+    
+    if(main = mains[url]){
+      try{ return loadAsFileFromCache(url + '/' + main); }
+      catch(e){ return loadAsFileFromCache(url + '/index'); }
+    }else return loadAsFileFromCache(url + '/index');
   }
   
   global.require = function(id){
@@ -142,28 +182,81 @@ function __evalIt(module,exports,global,___content){
     
     if(filename){
       url = filename.join('/');
-      try{ return loadAsFile(url,filename,this); }
-      catch(e){ return loadAsFolder(url,filename.concat(''),this); }
+      try{
+        if(global.require.tryCacheFirst){
+          try{ return loadAsFileFromCache(url); }
+          catch(e){ return loadAsFolderFromCache(url); }
+        }else throw new Error();
+      }catch(e){
+        try{ return loadAsFile(url,filename,this); }
+        catch(e){ return loadAsFolder(url,filename.concat(''),this); }
+      }
+    }
+    
+    if(global.require.tryCacheFirst){
+      
+      for(i = 0;i < global.require.core.length;i++){
+        filename = resolve(id,global.require.core[i]);
+        url = filename.join('/');
+        try{ return loadAsFileFromCache(url); }
+        catch(e){
+          try{ return loadAsFolderFromCache(url); }
+          catch(e){}
+        }
+      }
+      
+      for(i = 0;i < ps.length;i++){
+        filename = resolve(id,ps[i]);
+        url = filename.join('/');
+        try{ return loadAsFileFromCache(url); }
+        catch(e){
+          try{ return loadAsFolderFromCache(url); }
+          catch(e){}
+        }
+      }
+      
     }
     
     for(i = 0;i < global.require.core.length;i++){
       filename = resolve(id,global.require.core[i]);
       url = filename.join('/');
-      try{ return loadAsFolder(url,filename.concat(''),this); }
-      catch(e){
-        try{ return loadAsFile(url,filename,this); }
-        catch(e){}
-      }
+      try{ return loadAsFolderPkg(url,filename.concat(''),this); }
+      catch(e){ }
+    }
+    
+    for(i = 0;i < global.require.core.length;i++){
+      filename = resolve(id,global.require.core[i]);
+      url = filename.join('/');
+      try{ return loadAsFile(url + '/index',filename.concat(''),this); }
+      catch(e){ }
+    }
+    
+    for(i = 0;i < global.require.core.length;i++){
+      filename = resolve(id,global.require.core[i]);
+      url = filename.join('/');
+      try{ return loadAsFile(url,filename,this); }
+      catch(e){ }
     }
     
     for(i = 0;i < ps.length;i++){
       filename = resolve(id,ps[i]);
       url = filename.join('/');
-      try{ return loadAsFolder(url,filename.concat(''),this); }
-      catch(e){
-        try{ return loadAsFile(url,filename,this); }
-        catch(e){}
-      }
+      try{ return loadAsFolderPkg(url,filename.concat(''),this); }
+      catch(e){ }
+    }
+    
+    for(i = 0;i < ps.length;i++){
+      filename = resolve(id,ps[i]);
+      url = filename.join('/');
+      try{ return loadAsFile(url + '/index',filename.concat(''),this); }
+      catch(e){ }
+    }
+    
+    for(i = 0;i < ps.length;i++){
+      filename = resolve(id,ps[i]);
+      url = filename.join('/');
+      try{ return loadAsFile(url,filename,this); }
+      catch(e){ }
     }
     
     throw new Error('Errors while processing \'' + id + '\'');
@@ -171,6 +264,7 @@ function __evalIt(module,exports,global,___content){
   
   global.require.core = [];
   global.require.cache = {};
+  global.require.tryCacheFirst = false;
   
   paths = getPaths(location.href);
   path = location.origin + location.pathname.replace(/\/[^\/]*$/,'');
