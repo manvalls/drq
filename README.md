@@ -45,4 +45,4 @@ require.core.push('http://yourdomain.com/modules/');
 
 As you may imagine, `require.core` is an array which holds a list of "probable locations" for your modules. This list is checked before any other place, so if your module is located there it will be found quickier than if it's in some lost `node_modules` directory. And that's all, enjoy developing without having to wait for some building script to end.
 
-If this little piece of code interests you, please feel free to help with it! PRs and issues are welcomed.
+If this little piece of code interests you, please feel free to help with it! PRs and issues are welcome.
