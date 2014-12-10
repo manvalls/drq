@@ -86,18 +86,19 @@ function __evalIt(module,exports,global,___content){
     return path;
   }
   
-  function loadAsFile(url,path,parent){
+  function loadAsFile(url,path,parent,bypass){
     var json,txt,
         djs = url + '.js',
         djson = url + '.json',
         module,
         filename;
     
-    if(global.require.cache[url]) return global.require.cache[url].exports;
+    if(!bypass && global.require.cache[url]) return global.require.cache[url].exports;
     if(global.require.cache[djs]) return global.require.cache[djs].exports;
     if(global.require.cache[djson]) return global.require.cache[djson].exports;
     
     try{
+      if(bypass) throw new Error();
       txt = get(filename = url);
     }catch(e){
       try{
@@ -147,16 +148,16 @@ function __evalIt(module,exports,global,___content){
       
       return loadAsFile(url + '/' + pkg.main,path,parent);
     }catch(e){
-      return loadAsFile(url + '/index',path,parent);
+      return loadAsFile(url + '/index',path,parent,true);
     }
     
   }
   
-  function loadAsFileFromCache(url){
+  function loadAsFileFromCache(url,bypass){
     var djs = url + '.js',
         djson = url + '.json';
     
-    if(global.require.cache[url]) return global.require.cache[url].exports;
+    if(!bypass && global.require.cache[url]) return global.require.cache[url].exports;
     if(global.require.cache[djs]) return global.require.cache[djs].exports;
     if(global.require.cache[djson]) return global.require.cache[djson].exports;
     
@@ -168,8 +169,8 @@ function __evalIt(module,exports,global,___content){
     
     if(main = mains[url]){
       try{ return loadAsFileFromCache(url + '/' + main); }
-      catch(e){ return loadAsFileFromCache(url + '/index'); }
-    }else return loadAsFileFromCache(url + '/index');
+      catch(e){ return loadAsFileFromCache(url + '/index',true); }
+    }else return loadAsFileFromCache(url + '/index',true);
   }
   
   global.require = function(id){
@@ -217,46 +218,94 @@ function __evalIt(module,exports,global,___content){
       
     }
     
-    for(i = 0;i < global.require.core.length;i++){
-      filename = resolve(id,global.require.core[i]);
-      url = filename.join('/');
-      try{ return loadAsFolderPkg(url,filename.concat(''),this); }
-      catch(e){ }
-    }
-    
-    for(i = 0;i < global.require.core.length;i++){
-      filename = resolve(id,global.require.core[i]);
-      url = filename.join('/');
-      try{ return loadAsFile(url + '/index',filename.concat(''),this); }
-      catch(e){ }
-    }
-    
-    for(i = 0;i < global.require.core.length;i++){
-      filename = resolve(id,global.require.core[i]);
-      url = filename.join('/');
-      try{ return loadAsFile(url,filename,this); }
-      catch(e){ }
-    }
-    
-    for(i = 0;i < ps.length;i++){
-      filename = resolve(id,ps[i]);
-      url = filename.join('/');
-      try{ return loadAsFolderPkg(url,filename.concat(''),this); }
-      catch(e){ }
-    }
-    
-    for(i = 0;i < ps.length;i++){
-      filename = resolve(id,ps[i]);
-      url = filename.join('/');
-      try{ return loadAsFile(url + '/index',filename.concat(''),this); }
-      catch(e){ }
-    }
-    
-    for(i = 0;i < ps.length;i++){
-      filename = resolve(id,ps[i]);
-      url = filename.join('/');
-      try{ return loadAsFile(url,filename,this); }
-      catch(e){ }
+    if(id.indexOf('/') == -1){
+      
+      for(i = 0;i < global.require.core.length;i++){
+        filename = resolve(id,global.require.core[i]);
+        url = filename.join('/');
+        try{ return loadAsFolderPkg(url,filename.concat(''),this); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < global.require.core.length;i++){
+        filename = resolve(id,global.require.core[i]);
+        url = filename.join('/');
+        try{ return loadAsFile(url + '/index',filename.concat(''),this,true); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < ps.length;i++){
+        filename = resolve(id,ps[i]);
+        url = filename.join('/');
+        try{ return loadAsFolderPkg(url,filename.concat(''),this); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < ps.length;i++){
+        filename = resolve(id,ps[i]);
+        url = filename.join('/');
+        try{ return loadAsFile(url + '/index',filename.concat(''),this,true); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < global.require.core.length;i++){
+        filename = resolve(id,global.require.core[i]);
+        url = filename.join('/');
+        try{ return loadAsFile(url,filename,this); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < ps.length;i++){
+        filename = resolve(id,ps[i]);
+        url = filename.join('/');
+        try{ return loadAsFile(url,filename,this); }
+        catch(e){ }
+      }
+      
+    }else{
+      
+      for(i = 0;i < global.require.core.length;i++){
+        filename = resolve(id,global.require.core[i]);
+        url = filename.join('/');
+        try{ return loadAsFile(url,filename,this); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < ps.length;i++){
+        filename = resolve(id,ps[i]);
+        url = filename.join('/');
+        try{ return loadAsFile(url,filename,this); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < global.require.core.length;i++){
+        filename = resolve(id,global.require.core[i]);
+        url = filename.join('/');
+        try{ return loadAsFolderPkg(url,filename.concat(''),this); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < global.require.core.length;i++){
+        filename = resolve(id,global.require.core[i]);
+        url = filename.join('/');
+        try{ return loadAsFile(url + '/index',filename.concat(''),this,true); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < ps.length;i++){
+        filename = resolve(id,ps[i]);
+        url = filename.join('/');
+        try{ return loadAsFolderPkg(url,filename.concat(''),this); }
+        catch(e){ }
+      }
+      
+      for(i = 0;i < ps.length;i++){
+        filename = resolve(id,ps[i]);
+        url = filename.join('/');
+        try{ return loadAsFile(url + '/index',filename.concat(''),this,true); }
+        catch(e){ }
+      }
+      
     }
     
     throw new Error('Errors while processing \'' + id + '\'');
