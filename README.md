@@ -14,7 +14,7 @@ You can then proceed to load your program:
 ```html
 <script>
 
-require('scripts/myprogram.js');
+require('./scripts/myprogram.js');
 
 </script>
 ```
